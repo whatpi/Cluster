@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "./TopicLogic.sol";
 import "../Share.sol";
@@ -18,7 +19,7 @@ contract TopicFactory {
 
     constructor(address _mainAddr) {
         impl  = address(new TopicLogic());    // 1회 배포
-        beacon = new UpgradeableBeacon(impl);
+        beacon = new UpgradeableBeacon(impl, address(this));
 
         mainAddr = _mainAddr;
     }
@@ -40,13 +41,11 @@ contract TopicFactory {
         );
 
 
-        TopicLogic proxy = new BeaconProxy(
+        proxyAddr = address(new BeaconProxy(
             address(beacon), // implementation
             initData
-        );
-        
-        proxyAddr = address(proxy);
-        
+        ));
+                
         topicAddr[id] = proxyAddr;
         emit TopicCreated(id, proxyAddr);
     }

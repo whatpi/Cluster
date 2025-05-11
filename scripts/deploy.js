@@ -5,46 +5,26 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deployer:", deployer.address);
 
-  /* ────────── 2. MainSystem (보드 주소 주입) ────────── */
   const System = await ethers.getContractFactory("MainSystem");
   const system = await System.deploy();
   await system.waitForDeployment();
-  console.log("MainSystem:", system.target);
+  console.log("MainSystem:", await system.getAddress());
 
-  /* ────────── 선택 3. 첫 번째 클러스터 배포 ────────── */
-  // 3-1) ClusterPass (ERC-1155)
-  const ClusterPass = await ethers.getContractFactory("ClusterPass");
-  const pass = await ClusterPass.deploy("");
-  await pass.waitForDeployment();
-  console.log("ClusterPass #1:", pass.target);
+  system.on("ClusterCreated", (id, clusterAddr, creator, event) => {
+  console.log("ClusterCreated fired:", { id, clusterAddr, creator });
+  });
 
-  /* 2️  ClusterSystem  ── 인자 9개 맞추기 */
-  const Cluster = await ethers.getContractFactory("ClusterSystem");
+  const policy = ethers.encodeBytes32String("sample");
+  const tx = await system.createCluster(0, policy, { value: ethers.parseEther("1") } );
+  const receipt = await tx.wait();
 
-  const clusterId      = 0;
-  const sideCode       = 0;                              // Side.PRO
-  const parentTopicId  = 0;
-  const policyDigest   = ethers.ZeroHash;                // bytes32(0)
-  const openingDigest  = ethers.ZeroHash;
-  const depositWei     = ethers.parseEther("0");
+  console.log("Tx Hash:", tx.hash);
+  console.log("Gas Used:", receipt.gasUsed.toString());
 
-  const cluster = await Cluster.deploy(
-    clusterId,               // ①
-    sideCode,                // ②  (enum은 uint8 캐스팅)
-    deployer.address,        // ③
-    parentTopicId,           // ④
-    system.target,           // ⑤  mainSystemAddr
-    pass.target,             // ⑥  passContractAddr
-    policyDigest,            // ⑦
-    openingDigest,           // ⑧
-    depositWei               // ⑨
-  );
-  await cluster.waitForDeployment();
-
-    /* 3️  소유권 이전 */
-    await pass.transferOwnership(cluster.target);
-
-    console.log("ClusterSystem:", cluster.target);
+  // main 함수 맨 끝에 추가
+  console.log("리스너가 활성화되었습니다. Ctrl+C로 종료하세요.");
+  await new Promise(() => {}); // 프로세스 유지
+ 
 }
 
 main().catch((err) => {

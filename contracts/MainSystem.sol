@@ -35,6 +35,7 @@ contract MainSystem {
         // --------------
 
         // deposit require
+        require(msg.value >= 0.1 ether, "Minimum is 0.1 ETH");
 
 
         /* 3. ClusterSystem 새 배포 */
