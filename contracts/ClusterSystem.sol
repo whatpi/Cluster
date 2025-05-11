@@ -35,7 +35,7 @@ contract ClusterSystem {
         policyDigest = _policyDigest;
         deposit = _deposit;
 
-        ClusterPass passContract = new ClusterPass("");
+        passContract = new ClusterPass("");
         /* 4. 소유권 이전: pass → cluster */
         passContract.transferOwnership(address(this));
 
@@ -43,14 +43,14 @@ contract ClusterSystem {
  
 
     /* ── 권한 확인 헬퍼 ── */
-    function has(address user, uint256 role) external view returns (bool) {
+    function has(address user, uint256 role) public view returns (bool) {
         return passContract.balanceOf(user, role) > 0;
     }
 
     /* ── 모디파이어 ── */
-    modifier onlyMember()    { require(this.has(msg.sender, ROLE_MEMBER),    "Not member");    _; }
-    modifier onlyVerified()  { require(this.has(msg.sender, ROLE_VERIFIED),  "Not verified");  _; }
-    modifier onlyModerator() { require(this.has(msg.sender, ROLE_MODERATOR), "Not moderator"); _; }
+    modifier onlyMember()    { require(has(msg.sender, ROLE_MEMBER),    "Not member");    _; }
+    modifier onlyVerified()  { require(has(msg.sender, ROLE_VERIFIED),  "Not verified");  _; }
+    modifier onlyModerator() { require(has(msg.sender, ROLE_MODERATOR), "Not moderator"); _; }
     modifier onlyCreator()   { require(msg.sender == creator,           "Not creator");   _; }
     
 
@@ -63,6 +63,10 @@ contract ClusterSystem {
 
     function mintModerator(address to)    external onlyCreator  { passContract.mint(to, ROLE_MODERATOR, 1, ""); }
     function burnModerator(address from)  external onlyCreator  { passContract.burn(from, ROLE_MODERATOR, 1);    }
+
+    function join() external{
+        
+    }
 
     
 

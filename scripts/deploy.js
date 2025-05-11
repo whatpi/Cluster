@@ -19,7 +19,30 @@ async function main() {
   const receipt = await tx.wait();
 
   console.log("Tx Hash:", tx.hash);
-  console.log("Gas Used:", receipt.gasUsed.toString());
+  console.log("Cluster Gas Used:", receipt.gasUsed.toString());
+
+  const digest = ethers.encodeBytes32String("sample");
+  const tx2 = await system.createTopic(digest);
+  console.log(tx);
+// 트랜잭션 영수증까지는 기존과 동일
+const receipt2 = await tx2.wait();
+
+for (const log of receipt2.logs) {
+  // (선택) 메인 시스템 계약에서 나온 로그만 처리
+  if (log.address !== system.target) continue;
+
+  const parsed = system.interface.parseLog(log);
+  if (parsed === null) continue;              // v6: 매칭 실패 시 null
+
+  if (parsed.name === "TopicCreated") {
+    const { id: topicId, proxyAddr: topicProxyAddress } = parsed.args;
+    console.log("TopicCreated:");
+    console.log("  id           =", topicId.toString());
+    console.log("  proxy address=", topicProxyAddress);
+  }
+}
+
+
 
   // main 함수 맨 끝에 추가
   console.log("리스너가 활성화되었습니다. Ctrl+C로 종료하세요.");

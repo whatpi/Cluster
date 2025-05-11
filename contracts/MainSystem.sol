@@ -18,12 +18,12 @@ contract MainSystem {
     mapping(address => uint256) public addressToClusterId;
     mapping(uint256 => address) public topicIdToAddrs;
 
-    event TopicCreated(uint256 id, address proxy);
+    event TopicCreated(uint256 id, address proxyAddr);
     event ClusterCreated(uint256 id, address clusterAddress, address indexed user);
 
     constructor() {
         topicFactory = new TopicFactory(address(this));        
-        nextClusterId = 1;
+        nextClusterId = 1; // 클러스터 아이디는 1부터 시작합니다
         nextTopicId = 0;
     }
 
@@ -31,7 +31,7 @@ contract MainSystem {
     function createCluster(
         uint256 _deposit,
         bytes32 _policyDigest
-    ) external payable returns (address) {
+    ) external payable returns (address clusterAddr) {
         // --------------
 
         // deposit require
@@ -47,7 +47,7 @@ contract MainSystem {
             _deposit
         );
 
-        address clusterAddr = address(cluster);
+        clusterAddr = address(cluster);
 
 
         /* 5. 매핑·이벤트 처리 */
@@ -62,17 +62,19 @@ contract MainSystem {
         return clusterAddr;
     }
 
-    function createTopic(bytes32 digest) external returns (address proxy)  {
+    function createTopic(bytes32 digest) external returns (address proxyAddr)  {
 
         // only timelock
 
-        proxy = topicFactory.createTopic(nextTopicId, digest, msg.sender);
-        topicIdToAddrs[nextTopicId] = proxy;
+        proxyAddr = topicFactory.createTopic(nextTopicId, digest, msg.sender);
+        topicIdToAddrs[nextTopicId] = proxyAddr;
 
         // event
-        emit TopicCreated(nextTopicId, proxy);
+        emit TopicCreated(nextTopicId, proxyAddr);
 
         nextTopicId++;
+
+        return proxyAddr;
     }
 
 

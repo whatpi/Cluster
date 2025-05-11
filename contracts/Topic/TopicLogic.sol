@@ -165,6 +165,8 @@ contract TopicLogic is Initializable {
             }
         }
 
+        // 모두 approved
+
         Edit storage e = edits[eid];
         e.approved = true;
         digest = e.newDigest;
