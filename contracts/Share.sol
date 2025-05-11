@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 enum ClaimType {INHERIT, REBUT}
-enum Side {PRO, CON, NONE}
+enum Side {NONE, PRO, CON}
+enum CreatorType {USER, CLUSTER}
 struct Claim {
     uint256 claimId;
     address creator;

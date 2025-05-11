@@ -5,15 +5,9 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deployer:", deployer.address);
 
-  /* ────────── 1. TopicBoard ────────── */
-  const Board = await ethers.getContractFactory("TopicBoard");
-  const board = await Board.deploy();
-  await board.waitForDeployment();
-  console.log("TopicBoard:", board.target);
-
   /* ────────── 2. MainSystem (보드 주소 주입) ────────── */
   const System = await ethers.getContractFactory("MainSystem");
-  const system = await System.deploy(board.target);
+  const system = await System.deploy();
   await system.waitForDeployment();
   console.log("MainSystem:", system.target);
 

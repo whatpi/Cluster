@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
-import "./interfaces/IClusterPass.sol"; 
-import "./Share.sol" as S;
+import "./ClusterPass.sol"; 
+import "./Share.sol";
 
 
 contract ClusterSystem {
@@ -12,48 +12,45 @@ contract ClusterSystem {
 
     /* ── 불변 변수 ── */
     uint256 public immutable clusterId;
-    S.Side  public immutable side;
     address public immutable creator;
-    uint256 public immutable parentTopicId;
     address public immutable mainSystemAddr;
-    IClusterPass public immutable passContract; 
 
     bytes32 public policyDigest;
     bytes32 public openingClaimDigest;
     uint256 public deposit;
 
+    // 기능별 컨트랙트
+    ClusterPass public immutable passContract; 
+
     constructor(
         uint256 _clusterId,
-        S.Side _side,
         address _creator,
-        uint256 _parentTopicId,
         address _mainSystemAddr,
-        address _passContractAddr,
         bytes32 _policyDigest,
-        bytes32 _openingClaimDigest,
         uint256 _deposit
     ) {
         clusterId = _clusterId;
-        side = _side;
         creator = _creator;
-        parentTopicId = _parentTopicId;
+        mainSystemAddr = _mainSystemAddr;
         policyDigest = _policyDigest;
         deposit = _deposit;
-        openingClaimDigest = _openingClaimDigest;
-        passContract = IClusterPass(_passContractAddr);
-        mainSystemAddr = _mainSystemAddr;
+
+        ClusterPass passContract = new ClusterPass("");
+        /* 4. 소유권 이전: pass → cluster */
+        passContract.transferOwnership(address(this));
+
     }
  
 
     /* ── 권한 확인 헬퍼 ── */
-    function _has(address user, uint256 role) internal view returns (bool) {
+    function has(address user, uint256 role) external view returns (bool) {
         return passContract.balanceOf(user, role) > 0;
     }
 
     /* ── 모디파이어 ── */
-    modifier onlyMember()    { require(_has(msg.sender, ROLE_MEMBER),    "Not member");    _; }
-    modifier onlyVerified()  { require(_has(msg.sender, ROLE_VERIFIED),  "Not verified");  _; }
-    modifier onlyModerator() { require(_has(msg.sender, ROLE_MODERATOR), "Not moderator"); _; }
+    modifier onlyMember()    { require(this.has(msg.sender, ROLE_MEMBER),    "Not member");    _; }
+    modifier onlyVerified()  { require(this.has(msg.sender, ROLE_VERIFIED),  "Not verified");  _; }
+    modifier onlyModerator() { require(this.has(msg.sender, ROLE_MODERATOR), "Not moderator"); _; }
     modifier onlyCreator()   { require(msg.sender == creator,           "Not creator");   _; }
     
 
@@ -66,6 +63,8 @@ contract ClusterSystem {
 
     function mintModerator(address to)    external onlyCreator  { passContract.mint(to, ROLE_MODERATOR, 1, ""); }
     function burnModerator(address from)  external onlyCreator  { passContract.burn(from, ROLE_MODERATOR, 1);    }
+
+    
 
     // 1. 클러스터 메인 문서 편집 요청
     // require 멤버
