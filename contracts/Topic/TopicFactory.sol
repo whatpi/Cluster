@@ -10,6 +10,7 @@ import "../Share.sol";
 contract TopicFactory {
     address public immutable impl;            // TopicLogic 구현 주소
     address public immutable mainAddr;           // main 주소
+    address public immutable claimAddr;
     UpgradeableBeacon public immutable beacon;
 
     mapping(uint256 => address) public topicAddr;  // id → proxyAddr
@@ -17,11 +18,12 @@ contract TopicFactory {
     event TopicCreated(uint256 indexed id, address proxyAddr);
     event ImplementationUpgraded(address newImpl);
 
-    constructor(address _mainAddr) {
+    constructor(address _mainAddr, address _claimAddr) {
         impl  = address(new TopicLogic());    // 1회 배포
         beacon = new UpgradeableBeacon(impl, address(this));
 
         mainAddr = _mainAddr;
+        claimAddr = _claimAddr;
     }
 
     function createTopic(
@@ -37,7 +39,8 @@ contract TopicFactory {
             id,
             digest,
             creator,
-            mainAddr
+            mainAddr,
+            claimAddr
         );
 
 

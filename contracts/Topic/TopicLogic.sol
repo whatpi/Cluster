@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../Share.sol";
 import "../MainSystem.sol";
+import "../ClaimNFT.sol";
+
 
 contract TopicLogic is Initializable {
 
@@ -16,15 +18,19 @@ contract TopicLogic is Initializable {
 
     uint256    public id;
     uint256    public nextEditId;
+    uint256    public nextClaimId;
     address    public creator;
     address    public mainAddr;
+    address    public claimAddr;
     MainSystem public main;
-    bool       public promoted;
+    ClaimNFT   public claimNFT;
     bytes32    public digest;
     uint256    public version;
     uint256    public promoteTimelock;
     uint256    public constant DELAY = 1800;
     bool       public readyforPromote;
+    bool       public promoted;
+    bool       public archived;
 
 
     mapping (address => bool) public isJoined;
@@ -55,18 +61,23 @@ contract TopicLogic is Initializable {
         uint256 _id,
         bytes32 _digest,
         address _creator,
-        address _mainAddr
+        address _mainAddr,
+        address _claimAddr
     ) external initializer {
         id = _id;
         digest  = _digest;
         creator = _creator;
         mainAddr   = _mainAddr;
+        claimAddr  = _claimAddr;
         main = MainSystem(_mainAddr);
+        claimNFT = ClaimNFT(_claimAddr);
         promoted = false;
         version = 0;
         nextEditId = 1;
+        nextClaimId = 0;
         promoteTimelock = type(uint256).max;
         readyforPromote = false;
+        archived = false;
     }
 
     function getTopicMeta()
@@ -176,4 +187,71 @@ contract TopicLogic is Initializable {
 
         emit EditApproved(eid);
     }
+
+    // 김지민님
+    function createClaim(bytes32 claimDigest, address claimCreator, address claimApprover) external onlyCluster() {
+        // require promote
+        // require not archived
+        
+        // id: 넥스트 클레임 아이디++
+        // 클레임 스트럭트 생성
+        // 아이디 -> 클레임 매핑에 집어넣기 (매핑 직접 만드시면 됩니다)
+        // 이벤트 뱉어냄
+    }
+
+    // 김윤태님
+    function agreeToArchive() external onlyCluster {
+        // require promote
+        // require not archived
+
+        // restAgreeToArchiveCount = JoinedCluster.length로 constructor에 선언하기
+        // restAgreeToArchiveCount를 1씩 감소시키기
+        // rest어쩌구가 0이면 내부 함수 _archive 실행
+        /* 다른 방법 떠오르시면 그걸로 해도 ㄱㅊ습니다*/
+        // 이벤트 뱉어냄
+    }
+
+    // 김윤태님
+    function _archvied() internal {
+        // archive = true
+        // archive struct 생성
+        // digest = bytes32(0)
+        // side 값별로 매핑에 저장 
+        // 이벤트 뱉어냄
+    }
+
+    // 김윤태님
+    function EditArchive(bytes32 archiveDigest) external onlyCluster {
+        // require archived true
+
+        // storge로 매핑에서 archive 스트럭트 불러오기
+        // digest 수정
+        // 이벤트 뱉어냄
+    }
+
+    // 이재민님
+    function mintCalimNFT(
+        uint256 claimId, 
+        string calldata tokenURI_, 
+        uint256 salePriceWei
+    ) external {
+        // claims에서 claim 꺼내기
+        // require isIssued false
+        // require msg.sender = 크레이터
+        
+        // claimNTT 포인터에서 mint 함수 꺼내서 인자 넣기
+    }
+
+
+
+
+
+
+    
+
+    
+
+    
+
+
 }

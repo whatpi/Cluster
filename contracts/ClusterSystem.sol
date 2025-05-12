@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 import "./ClusterPass.sol"; 
 import "./Share.sol";
+import "./Topic/TopicLogic.sol";
+import "./MainSystem.sol";
 
 
 contract ClusterSystem {
@@ -11,16 +13,23 @@ contract ClusterSystem {
     uint256 private constant ROLE_MODERATOR = 2;
 
     /* ── 불변 변수 ── */
-    uint256 public immutable clusterId;
-    address public immutable creator;
-    address public immutable mainSystemAddr;
+    uint256 public clusterId;
+    address public creator;
+    address public leader;
+    address public mainSystemAddr;
+    MainSystem public main;
 
     bytes32 public policyDigest;
     bytes32 public openingClaimDigest;
     uint256 public deposit;
 
+    mapping (address => bool) public isBlocked;
+
+    event ClaimRequest(uint256 indexed topicId, bytes32 digest, address indexed claimCreator);
+    event EditTopicRequest(uint256 indexed topicId, bytes32 digest, address indexed editor);
+
     // 기능별 컨트랙트
-    ClusterPass public immutable passContract; 
+    ClusterPass public pass; 
 
     constructor(
         uint256 _clusterId,
@@ -31,69 +40,161 @@ contract ClusterSystem {
     ) {
         clusterId = _clusterId;
         creator = _creator;
+        leader = _creator;
         mainSystemAddr = _mainSystemAddr;
+        main = MainSystem(mainSystemAddr);
         policyDigest = _policyDigest;
         deposit = _deposit;
 
-        passContract = new ClusterPass("");
+        pass = new ClusterPass("");
         /* 4. 소유권 이전: pass → cluster */
-        passContract.transferOwnership(address(this));
+        pass.transferOwnership(address(this));
 
+        _mintMember(creator);
+        _mintVerified(creator);
+        _mintModerator(creator);
+        
     }
  
 
     /* ── 권한 확인 헬퍼 ── */
     function has(address user, uint256 role) public view returns (bool) {
-        return passContract.balanceOf(user, role) > 0;
+        return pass.balanceOf(user, role) > 0;
+    }
+
+    function isMember(address user) public view returns (bool) {
+        return has(user, ROLE_MEMBER);
+    }
+    
+    function isVerified(address user) public view returns (bool) {
+        return has(user, ROLE_VERIFIED);
+    }
+    
+    function isModerator(address user) public view returns (bool) {
+        return has(user, ROLE_MEMBER);
+    }
+
+    function isLeader(address user) public view returns (bool) {
+        return (user == leader);
     }
 
     /* ── 모디파이어 ── */
-    modifier onlyMember()    { require(has(msg.sender, ROLE_MEMBER),    "Not member");    _; }
-    modifier onlyVerified()  { require(has(msg.sender, ROLE_VERIFIED),  "Not verified");  _; }
-    modifier onlyModerator() { require(has(msg.sender, ROLE_MODERATOR), "Not moderator"); _; }
-    modifier onlyCreator()   { require(msg.sender == creator,           "Not creator");   _; }
+    modifier onlyMember()    { require(isMember(msg.sender),    "Not member");    _; }
+    modifier onlyVerified()  { require(isVerified(msg.sender),  "Not verified");  _; }
+    modifier onlyModerator() { require(isModerator(msg.sender), "Not moderator"); _; }
+    modifier onlyLeader()   { require(isLeader(msg.sender),    "Not Leader");   _; }
     
 
     /* ── NFT 발급·회수 ── */
-    function mintMember(address to)       external onlyModerator { passContract.mint(to, ROLE_MEMBER,    1, ""); }
-    function burnMember(address from)     external onlyModerator { passContract.burn(from, ROLE_MEMBER,  1);     }
+    function _mintMember(address to)       internal { pass.mint(to, ROLE_MEMBER,    1, ""); }
+    function _burnMember(address from)     internal { pass.burn(from, ROLE_MEMBER,  1);     }
 
-    function mintVerified(address to)     external onlyModerator { passContract.mint(to, ROLE_VERIFIED,  1, ""); }
-    function burnVerified(address from)   external onlyModerator { passContract.burn(from, ROLE_VERIFIED, 1);     }
+    function _mintVerified(address to)     internal { pass.mint(to, ROLE_VERIFIED,  1, ""); }
+    function _burnVerified(address from)   internal { pass.burn(from, ROLE_VERIFIED, 1);     }
 
-    function mintModerator(address to)    external onlyCreator  { passContract.mint(to, ROLE_MODERATOR, 1, ""); }
-    function burnModerator(address from)  external onlyCreator  { passContract.burn(from, ROLE_MODERATOR, 1);    }
+    function _mintModerator(address to)    internal { pass.mint(to, ROLE_MODERATOR, 1, ""); }
+    function _burnModerator(address from)  internal { pass.burn(from, ROLE_MODERATOR, 1);    }
 
     function join() external{
-        
+
+        require(!isMember(msg.sender), "Already Member");
+        require(!isBlocked[msg.sender], "Blocked");
+
+        _mintMember(msg.sender);
     }
 
+    function mintVerified(address to) external onlyModerator() {
+        require(!isBlocked[to], "Blocked");
+        require(!isVerified(to), "Already Verified");
+        require(isMember(to), "Not Member");
+
+        _mintVerified(to);
+    }
+
+    function mintModerator(address to) external onlyLeader() {
+        require(!isBlocked[to], "Blocked");
+        require(!isModerator(to), "Already Moderator");
+        require(isVerified(to), "Not Verified");
+
+        _mintModerator(to);
+    }
+
+    function blockMemberOrVerified(address user) external onlyModerator {
+        require(!isModerator(user), "not Moderator");
+        require(!isBlocked[user], "Already Blocked");
+
+        if (isMember(user)) {
+            _burnMember(user);
+        }
+
+        if (isVerified(user)) {
+            _burnVerified(user);
+        }
+
+        isBlocked[user] = true;
+    }
+
+    function unblock(address user) external onlyModerator {
+
+        require(isBlocked[user], "Not Blocked");
+        // 의결에 의해 추방을 만든다면 추방 취소는 다시 의결로만 가능하게 만들어야 할듯
+        // 추방은 의결로는 불가능하고 권한 박탈용으로만?
+
+        isBlocked[user] = false;
+    }
     
+    // 의결 생성
 
-    // 1. 클러스터 메인 문서 편집 요청
-    // require 멤버
-    // 중재자거나 verified면 바로 수정 함수 실행행
-    // 
+    // 투표
 
-    // 2. 클러스터 메인 문서 승인
-    // 중재자가 증인인
+    // 의결 타임럭 생성
 
-    // 3. 클러스터 메인 문서 수정
-    // digest 값 바꿈
+    // 타임럭에 의존하는 함수들
 
-    // 1. 클레임 생성 요청
-    // require 멤버
-    // require 같은 토픽픽 아이디 
-    // 중재자거나 verified면 바로 생성 함수 실행
+    // function join
 
-    // 2. 클레임 생성 승인
-    // 중재만 가능
+    // function tanhaek
 
-    // 3. 클레임 생성
-    // 메인으로 넘기기 
+    function _editTopic(uint256 topicId, bytes32 digest) internal {
+        TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
+        proxy.proposeEdit(digest);
+    }
 
-    // 1. 클레임 nft화 : 클러스터당 하나씩 클레임 nft 파일을 만들기기
- 
-    // 2. 클레임 nft 구매
+    function editTopic(uint256 topicId, bytes32 digest) external onlyMember {
+        if(isModerator(msg.sender)) {
+            _editTopic(topicId, digest);
+        } else {
+            emit EditTopicRequest(topicId, digest, msg.sender);
+        }
+    }
+
+    function approveEditingTopic(uint256 topicId, bytes32 digest) external onlyModerator {
+        _editTopic(topicId, digest);
+    }
+
+    function agreedEditingTopic(uint256 topicId, uint256 eid) external onlyModerator {
+        TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
+        proxy.agreedEdit(eid);
+    }
+    
+    function _createCalim(uint256 topicId, bytes32 digest, address claimCreator, address approver) internal {
+        TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
+        proxy.createCalim(digest, claimCreator, approver);
+    }
+
+    function createClaim(uint256 topicId, bytes32 digest) external onlyMember {
+        if(isVerified(msg.sender)) {
+            _createCalim(topicId, digest, msg.sender, msg.sender);
+        } else {
+            emit ClaimRequest(topicId, digest, msg.sender);
+        }
+    }
+
+    function approveClaim(uint256 topicId, bytes32 digest, address claimCreator) external onlyVerified {
+        _createCalim(topicId, digest, claimCreator, msg.sender);
+    }
+
+
+
 
 }

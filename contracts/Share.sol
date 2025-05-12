@@ -12,5 +12,5 @@ struct Claim {
     ClaimType claimType;
     uint256 parentClaimId;
     uint256 clusterId;
-    bool isNFTIssued;
+    bool isIssued;
 }
