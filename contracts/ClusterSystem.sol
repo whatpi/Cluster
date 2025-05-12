@@ -177,21 +177,21 @@ contract ClusterSystem {
         proxy.agreedEdit(eid);
     }
     
-    function _createCalim(uint256 topicId, bytes32 digest, address claimCreator, address approver) internal {
+    function _createClaim(uint256 topicId, bytes32 digest, address claimCreator, address approver) internal {
         TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
-        proxy.createCalim(digest, claimCreator, approver);
+        proxy.createClaim(digest, claimCreator, approver);
     }
 
     function createClaim(uint256 topicId, bytes32 digest) external onlyMember {
         if(isVerified(msg.sender)) {
-            _createCalim(topicId, digest, msg.sender, msg.sender);
+            _createClaim(topicId, digest, msg.sender, msg.sender);
         } else {
             emit ClaimRequest(topicId, digest, msg.sender);
         }
     }
 
     function approveClaim(uint256 topicId, bytes32 digest, address claimCreator) external onlyVerified {
-        _createCalim(topicId, digest, claimCreator, msg.sender);
+        _createClaim(topicId, digest, claimCreator, msg.sender);
     }
 
 

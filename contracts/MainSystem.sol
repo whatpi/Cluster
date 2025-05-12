@@ -26,7 +26,7 @@ contract MainSystem {
     event ClusterCreated(uint256 id, address clusterAddress, address indexed user);
 
     constructor() {
-        claimNFT = new ClaimNFT("","");
+        claimNFT = new ClaimNFT("","",address(this));
         claimNFTAddr = address(claimNFT);
         topicFactory = new TopicFactory(address(this), claimNFTAddr);        
         nextClusterId = 1; // 클러스터 아이디는 1부터 시작합니다
