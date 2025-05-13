@@ -20,7 +20,6 @@ contract ClusterSystem {
     MainSystem public main;
 
     bytes32 public policyDigest;
-    bytes32 public openingClaimDigest;
     uint256 public deposit;
 
     mapping (address => bool) public isBlocked;
@@ -71,7 +70,7 @@ contract ClusterSystem {
     }
     
     function isModerator(address user) public view returns (bool) {
-        return has(user, ROLE_MEMBER);
+        return has(user, ROLE_MODERATOR);
     }
 
     function isLeader(address user) public view returns (bool) {
@@ -82,7 +81,7 @@ contract ClusterSystem {
     modifier onlyMember()    { require(isMember(msg.sender),    "Not member");    _; }
     modifier onlyVerified()  { require(isVerified(msg.sender),  "Not verified");  _; }
     modifier onlyModerator() { require(isModerator(msg.sender), "Not moderator"); _; }
-    modifier onlyLeader()   { require(isLeader(msg.sender),    "Not Leader");   _; }
+    modifier onlyLeader()   { require(isLeader(msg.sender),    "Not leader");   _; }
     
 
     /* ── NFT 발급·회수 ── */
@@ -151,16 +150,21 @@ contract ClusterSystem {
 
     // 타임럭에 의존하는 함수들
 
-    // function join
+    // function topicjoin
 
     // function tanhaek
+
+    // paymaster
 
     function _editTopic(uint256 topicId, bytes32 digest) internal {
         TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
         proxy.proposeEdit(digest);
     }
 
-    function editTopic(uint256 topicId, bytes32 digest) external onlyMember {
+    function editTopic(
+        uint256 topicId, 
+        bytes32 digest
+    ) external onlyMember {
         if(isModerator(msg.sender)) {
             _editTopic(topicId, digest);
         } else {
@@ -168,30 +172,51 @@ contract ClusterSystem {
         }
     }
 
-    function approveEditingTopic(uint256 topicId, bytes32 digest) external onlyModerator {
+    function approveEditingTopic(
+        uint256 topicId, 
+        bytes32 digest
+    ) external onlyModerator {
         _editTopic(topicId, digest);
     }
 
-    function agreedEditingTopic(uint256 topicId, uint256 eid) external onlyModerator {
+    function agreedEditingTopic(
+        uint256 topicId, 
+        uint256 eid
+    ) external onlyModerator {
         TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
         proxy.agreedEdit(eid);
     }
     
-    function _createClaim(uint256 topicId, bytes32 digest, address claimCreator, address approver) internal {
+    function _createClaim(
+        uint256 topicId, 
+        bytes32 digest, 
+        address claimCreator, 
+        address approver, 
+        ClaimType claimType
+    ) internal {
         TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
-        proxy.createClaim(digest, claimCreator, approver);
+        proxy.createClaim(digest, claimCreator, approver, claimType);
     }
 
-    function createClaim(uint256 topicId, bytes32 digest) external onlyMember {
+    function createClaim(
+        uint256 topicId, 
+        bytes32 digest, 
+        ClaimType claimType
+    ) external onlyMember {
         if(isVerified(msg.sender)) {
-            _createClaim(topicId, digest, msg.sender, msg.sender);
+            _createClaim(topicId, digest, msg.sender, msg.sender, claimType);
         } else {
             emit ClaimRequest(topicId, digest, msg.sender);
         }
     }
 
-    function approveClaim(uint256 topicId, bytes32 digest, address claimCreator) external onlyVerified {
-        _createClaim(topicId, digest, claimCreator, msg.sender);
+    function approveClaim(
+        uint256 topicId, 
+        bytes32 digest, 
+        address claimCreator, 
+        ClaimType claimType
+    ) external onlyVerified {
+        _createClaim(topicId, digest, claimCreator, msg.sender, claimType);
     }
 
 

@@ -28,9 +28,11 @@ contract TopicLogic is Initializable {
     uint256    public version;
     uint256    public promoteTimelock;
     uint256    public constant DELAY = 1800;
-    bool       public readyforPromote;
-    bool       public promoted;
-    bool       public archived;
+    // bool       public readyforPromote;
+    // bool       public promoted;
+    // bool       public archived;
+
+    Status     public status;
 
 
     mapping (address => bool) public isJoined;
@@ -71,13 +73,14 @@ contract TopicLogic is Initializable {
         claimAddr  = _claimAddr;
         main = MainSystem(_mainAddr);
         claimNFT = ClaimNFT(_claimAddr);
-        promoted = false;
+        // promoted = false;
         version = 0;
         nextEditId = 1;
         nextClaimId = 0;
         promoteTimelock = type(uint256).max;
-        readyforPromote = false;
-        archived = false;
+        // readyforPromote = false;
+        // archived = false;
+        status = Status.Initial;
     }
 
     function getTopicMeta()
@@ -87,15 +90,15 @@ contract TopicLogic is Initializable {
             uint256,
             bytes32,
             address,
-            bool
+            Status
         )
     {
-        return (id, digest, creator, promoted);
+        return (id, digest, creator, status);
     }
 
     function joinTopic(Side side) onlyCluster() external {
 
-        require(!promoted, "Already promoted");
+        require(uint(status) < uint(Status.Promoted), "Already promoted");
         require(!isJoined[msg.sender], "Already joined");
 
         isJoined[msg.sender] = true;
@@ -103,9 +106,9 @@ contract TopicLogic is Initializable {
         whereSide[msg.sender] = side;
         sideActivated[side] = true;
 
-        if (!readyforPromote ) {
+        if (status == Status.ReadyForPromote ) {
             if (sideActivated[Side.CON] && sideActivated[Side.PRO]){
-                readyforPromote = true;
+                status = Status.Promoted;
                 _resetTimelock();
             }
             // readyforpromote = false 인데 activated가 모두 안되어있을 경우만 reset 안함
@@ -129,17 +132,16 @@ contract TopicLogic is Initializable {
     // 이 함수를 백엔드에서 계속 돌려줘야함
     function promoteTopic() external {
     
-        require(!promoted, "already promoted");
-        require(readyforPromote, "Not Side Activated");
+        require(status == Status.ReadyForPromote, "ReadyforPromote require");
         require(block.timestamp >= promoteTimelock);
 
-        promoted = true;
+        status = Status.Promoted;
         emit TopicPromoted();
     }
 
     function proposeEdit(bytes32 newDigest) external onlyCluster() {
 
-        require(!promoted, "already promoted");
+        require(uint(status) < uint(Status.Promoted), "Already promoted");
 
         uint256 eid = nextEditId++;
 
@@ -157,7 +159,7 @@ contract TopicLogic is Initializable {
 
     function agreedEdit(uint256 eid) external onlyCluster() {
 
-        require(!promoted, "already promoted");
+        require(uint(status) < uint(Status.Promoted), "Already promoted");
         require(!edits[eid].approved, "already approved");
 
         editId2ClusterAddr2Agreed[eid][msg.sender] = true;
@@ -189,9 +191,11 @@ contract TopicLogic is Initializable {
     }
 
     // 김지민님
-    function createClaim(bytes32 claimDigest, address claimCreator, address claimApprover) external onlyCluster() {
-        // require promote
-        // require not archived
+    function createClaim(bytes32 claimDigest, address claimCreator, address claimApprover, ClaimType claimType) external onlyCluster() {
+
+        // if type = opening : require promoted
+
+        // if type = rebut || inherit : require InDiscussion
         
         // id: 넥스트 클레임 아이디++
         // 클레임 스트럭트 생성
@@ -199,10 +203,15 @@ contract TopicLogic is Initializable {
         // 이벤트 뱉어냄
     }
 
+    function modifyOpeningClaim(uint256 claimId, bytes32 newDigest) external onlyCluster() {
+        // 클레임 꺼내기
+        // require type = opening
+        // digest = newDigest
+    }
+
     // 김윤태님
     function agreeToArchive() external onlyCluster {
-        // require promote
-        // require not archived
+        // require InDiscussion
 
         // restAgreeToArchiveCount = JoinedCluster.length로 constructor에 선언하기
         // restAgreeToArchiveCount를 1씩 감소시키기
@@ -213,7 +222,7 @@ contract TopicLogic is Initializable {
 
     // 김윤태님
     function _archvied() internal {
-        // archive = true
+        // staus = archived
         // archive struct 생성
         // digest = bytes32(0)
         // side 값별로 매핑에 저장 
@@ -230,7 +239,7 @@ contract TopicLogic is Initializable {
     }
 
     // 이재민님
-    function mintCalimNFT(
+    function mintClaimNFT(
         uint256 claimId, 
         string calldata tokenURI_, 
         uint256 salePriceWei
