@@ -203,6 +203,7 @@ contract TopicLogic is Initializable {
         // 이벤트 뱉어냄
     }
 
+    // 김지민님
     function modifyOpeningClaim(uint256 claimId, bytes32 newDigest) external onlyCluster() {
         // 클레임 꺼내기
         // require type = opening

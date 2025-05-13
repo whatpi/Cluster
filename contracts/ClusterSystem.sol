@@ -219,6 +219,14 @@ contract ClusterSystem {
         _createClaim(topicId, digest, claimCreator, msg.sender, claimType);
     }
 
+    // _modify
+
+    // modify  // emit modifyingrequest
+
+    // approvemodify
+
+    
+
 
 
 
