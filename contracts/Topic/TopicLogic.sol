@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../Share.sol";
@@ -196,6 +196,10 @@ contract TopicLogic is Initializable {
         // if type = opening : require promoted
 
         // if type = rebut || inherit : require InDiscussion
+
+        /*lockststem: */ 
+        //claimCreator가 다른 진영에 클레임을 생성한 적 있는지 검토
+        // 생성한 적 없어야됨
         
         // id: 넥스트 클레임 아이디++
         // 클레임 스트럭트 생성

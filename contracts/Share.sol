@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 enum ClaimType {OPENING, INHERIT, REBUT}
 enum Side {NONE, PRO, CON}

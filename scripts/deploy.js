@@ -10,6 +10,12 @@ async function main() {
   await system.waitForDeployment();
   console.log("MainSystem:", await system.getAddress());
 
+  // @account-abstraction/contracts 안에 EntryPoint.sol 구현이 포함되어 있습니다
+  const EntryPoint = await ethers.getContractFactory("EntryPoint");
+  const entryPoint = await EntryPoint.deploy();
+  await entryPoint.deployed();
+
+
   system.on("ClusterCreated", (id, clusterAddr, creator, event) => {
   console.log("ClusterCreated fired:", { id, clusterAddr, creator });
   });

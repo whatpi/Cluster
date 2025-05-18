@@ -3,7 +3,7 @@ require("dotenv").config();  // <= 꼭 추가
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.24",
+  solidity: "0.8.28",
 
   networks: {
     hardhat: {
