@@ -16,7 +16,6 @@ interface IClusterAccount {
 
 contract ClusterPaymaster is BasePaymaster {
 
-    /// 일단 이거 왜 안되는 거?? 계속 빨간줄
 
     ClusterSystem public cluster;
     // address public clusterAddr;
@@ -70,7 +69,6 @@ contract ClusterPaymaster is BasePaymaster {
         bytes calldata context, // 인코딩된 데이터
         uint256 actualGasCost, // actualGasCost = gasUsed * effectiveGasPrice 프론트엔드에서 계산
         uint256
-        // override 도 안되는 상황............. 왜?
     ) 
     internal override
     {

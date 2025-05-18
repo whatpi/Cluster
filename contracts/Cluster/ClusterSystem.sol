@@ -67,7 +67,6 @@ contract ClusterSystem {
     }
  
 
-    /* ── 권한 확인 헬퍼 ── */
     function has(address user, uint256 role) public view returns (bool) {
         return pass.balanceOf(user, role) > 0;
     }
@@ -88,14 +87,11 @@ contract ClusterSystem {
         return (user == leader);
     }
 
-    /* ── 모디파이어 ── */
     modifier onlyMember()    { require(isMember(msg.sender),    "Not member");    _; }
     modifier onlyVerified()  { require(isVerified(msg.sender),  "Not verified");  _; }
     modifier onlyModerator() { require(isModerator(msg.sender), "Not moderator"); _; }
     modifier onlyLeader()   { require(isLeader(msg.sender),    "Not leader");   _; }
     
-
-    /* ── NFT 발급·회수 ── */
     function _mintMember(address to)       internal { pass.mint(to, ROLE_MEMBER,    1, ""); }
     function _burnMember(address from)     internal { pass.burn(from, ROLE_MEMBER,  1);     }
 
