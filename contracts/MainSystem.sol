@@ -42,6 +42,7 @@ contract MainSystem {
         nextClusterId = 1; // 클러스터 아이디는 1부터 시작합니다
         nextTopicId = 1; // 1부터 하는 이유는 그게 토픽이 아니면 0을 뱉어낼 거기 떄문에..
         entryPoint = IEntryPoint(_entryPointAddr);
+        entryPointAddr = _entryPointAddr;
     }
 
     // 클러스터 생성

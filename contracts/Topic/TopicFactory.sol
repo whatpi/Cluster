@@ -8,10 +8,10 @@ import "./TopicLogic.sol";
 import "../Share.sol";
 
 contract TopicFactory {
-    address public immutable impl;            // TopicLogic 구현 주소
-    address public immutable mainAddr;           // main 주소
-    address public immutable claimAddr;
-    UpgradeableBeacon public immutable beacon;
+    address public impl;            // TopicLogic 구현 주소
+    address public mainAddr;           // main 주소
+    address public claimAddr;
+    UpgradeableBeacon public beacon;
 
     mapping(uint256 => address) public topicAddr;  // id → proxyAddr
 
@@ -24,6 +24,10 @@ contract TopicFactory {
 
         mainAddr = _mainAddr;
         claimAddr = _claimAddr;
+    }
+
+    function setMainSystmem(address _mainAddr) external {
+        mainAddr = _mainAddr;
     }
 
     function createTopic(
