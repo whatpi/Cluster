@@ -14,12 +14,6 @@ struct Claim {
     uint256 clusterId;
     bool isIssued;
 }
-struct Archive {
-    uint256 topicId;
-    address clusterAddr;
-    bytes32 digest;
-
-}
 
 enum Status {
     Initial,          // 0: 생성 직후

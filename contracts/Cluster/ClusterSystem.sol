@@ -5,15 +5,17 @@ import "../Share.sol";
 import "../Topic/TopicLogic.sol";
 import "../MainSystem.sol";
 import "./ClusterPaymaster.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-contract ClusterSystem {
-    /* ── 상수: 역할 ID ── */
+
+contract ClusterSystem is Ownable, Initializable{
+    // 상수
     uint256 private constant ROLE_MEMBER    = 0;
     uint256 private constant ROLE_VERIFIED  = 1;
     uint256 private constant ROLE_MODERATOR = 2;
 
-    /* ── 불변 변수 ── */
+    // 불변 변수
     uint256    public clusterId;
     address    public creator;
     address    public leader;
@@ -26,33 +28,35 @@ contract ClusterSystem {
     uint256 public locked;
 
     mapping (address => bool) public isBlocked;
+    mapping (uint256 => Status) public topicId2status;
     
 
-    event ClaimRequest(uint256 indexed topicId, bytes32 digest, address indexed claimCreator);
+    event ClaimRequest(uint256 indexed parentClaimId, uint256 indexed topicId, bytes32 digest, address indexed claimCreator);
     event EditTopicRequest(uint256 indexed topicId, bytes32 digest, address indexed editor);
 
     // 기능별 컨트랙트
     ClusterPass public pass; 
 
-    constructor(
+    function initialize(
         uint256 _clusterId,
         address _creator,
         address _mainSystemAddr,
         bytes32 _policyDigest,
         uint256 _deposit,
         address _paymasterAddr,
-        ClusterPass _pass
-    ) {
+        address _passAddr
+    ) external initializer() Ownable(msg.sender)
+    {
         clusterId = _clusterId;
-        creator = _creator;
-        leader = _creator;
+        creator   = _creator;
+        leader    = _creator;
         mainSystemAddr = _mainSystemAddr;
         main = MainSystem(mainSystemAddr);
         policyDigest = _policyDigest;
         deposit = _deposit;
         locked = 0;
         paymasterAddr = _paymasterAddr;
-        pass = _pass;        
+        pass = ClusterPass(_passAddr);        
     }
 
     modifier onlyMain() {
@@ -60,7 +64,7 @@ contract ClusterSystem {
         _;
     }
 
-    function InitializeCreator() external onlyMain() {
+    function InitializeCreator() external onlyOwner() {
         _mintMember(creator);
         _mintVerified(creator);
         _mintModerator(creator);
@@ -173,12 +177,12 @@ contract ClusterSystem {
         uint256 actualGasCost
     ) external onlyPaymaster 
     {
+        // 이거 위험할 수 있음 락 시스템은 관념적인 건데 deposit에 가스비가 남더라도 락 시스템이 뭔가 오류가 나면 수습이 안됨
         require(locked >= reserved, "over-release");
         locked -= reserved;
         require(deposit >= actualGasCost, "insufficient deposit");
         deposit -= actualGasCost;
     }
-
     
     // 의결 생성
 
@@ -188,7 +192,11 @@ contract ClusterSystem {
 
     // 타임럭에 의존하는 함수들
 
-    // function topicjoin
+    function joinTopic(uint256 topicId, Side side) external onlyVerified() {
+        TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
+        proxy.joinTopic(side);
+        topicId2status[topicId] = side;
+    }
 
     // function tanhaek
 
@@ -226,35 +234,38 @@ contract ClusterSystem {
     }
     
     function _createClaim(
-        uint256 topicId, 
+        uint256 topicId,
+        uint256 parentClaimId,
         bytes32 digest, 
         address claimCreator, 
         address approver, 
         ClaimType claimType
     ) internal {
         TopicLogic proxy = TopicLogic(main.topicIdToAddrs(topicId));
-        proxy.createClaim(digest, claimCreator, approver, claimType);
+        proxy.createClaim(parentClaimId, digest, claimCreator, approver, claimType);
     }
 
     function createClaim(
-        uint256 topicId, 
+        uint256 topicId,
+        uint256 parentClaimId, 
         bytes32 digest, 
         ClaimType claimType
     ) external onlyMember {
         if(isVerified(msg.sender)) {
-            _createClaim(topicId, digest, msg.sender, msg.sender, claimType);
+            _createClaim(parentClaimId, topicId, digest, msg.sender, msg.sender, claimType);
         } else {
-            emit ClaimRequest(topicId, digest, msg.sender);
+            emit ClaimRequest(parentClaimId, topicId, digest, msg.sender);
         }
     }
 
     function approveClaim(
         uint256 topicId, 
+        uint256 parentClaimId,
         bytes32 digest, 
         address claimCreator, 
         ClaimType claimType
     ) external onlyVerified {
-        _createClaim(topicId, digest, claimCreator, msg.sender, claimType);
+        _createClaim(topicId, parentClaimId, digest, claimCreator, msg.sender, claimType);
     }
 
     // _modify

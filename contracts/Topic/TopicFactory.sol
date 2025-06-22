@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import "./TopicLogic.sol";
 import "../Share.sol";
 
-contract TopicFactory {
+contract TopicFactory is Ownable{
     address public impl;            // TopicLogic 구현 주소
     address public mainAddr;           // main 주소
     address public claimAddr;
@@ -26,8 +26,16 @@ contract TopicFactory {
         claimAddr = _claimAddr;
     }
 
-    function setMainSystmem(address _mainAddr) external {
+    // 의존성 주입구 열어놓기
+
+    function setMainSystem(address _mainAddr) external onlyOwner() {
+        require(msg.sender == mainAddr, "only main");
         mainAddr = _mainAddr;
+    }
+
+    function setClaimNFT(address _claimAddr) external onlyOwner() {
+        require(msg.sender == mainAddr, "only main");
+        claimAddr = _claimAddr;
     }
 
     function createTopic(
@@ -49,15 +57,14 @@ contract TopicFactory {
 
 
         proxyAddr = address(new BeaconProxy(
-            address(beacon), // implementation
+            address(beacon),
             initData
         ));
                 
-        topicAddr[id] = proxyAddr;
         emit TopicCreated(id, proxyAddr);
     }
 
-    function upgradeImplementation(address newImplementation) external {
+    function upgradeImplementation(address newImplementation) external onlyOwner() {
         beacon.upgradeTo(newImplementation);
         emit ImplementationUpgraded(newImplementation);
     }

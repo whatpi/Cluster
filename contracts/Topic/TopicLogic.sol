@@ -9,6 +9,17 @@ import "../ClaimNFT.sol";
 
 contract TopicLogic is Initializable {
 
+    // struct Claim {
+    //     uint256 claimId;
+    //     address creator;
+    //     bytes32 digest;
+    //     Side side;
+    //     ClaimType claimType;
+    //     uint256 parentClaimId;
+    //     uint256 clusterId;
+    //     bool isIssued;
+    // }
+
     struct Edit {
         uint256 id;
         bytes32 newDigest;
@@ -28,19 +39,23 @@ contract TopicLogic is Initializable {
     uint256    public version;
     uint256    public promoteTimelock;
     uint256    public constant DELAY = 1800;
+    uint256    public restAgreeToArchiveCount;
     // bool       public readyforPromote;
     // bool       public promoted;
     // bool       public archived;
 
     Status     public status;
 
-
     mapping (address => bool) public isJoined;
+    // 클러스터 + 유저
     mapping (address => Side) public whereSide;
     address[]                 public joinedClusters;
     mapping (Side => bool)    public sideActivated;
     mapping (uint256 => Edit) public edits;
     mapping (uint256 => mapping (address => bool)) public editId2ClusterAddr2Agreed;
+    mapping (uint256 => Claim) cliams;
+    mapping (address => bool) public addr2archiveAgeed;
+    mapping (Side => bytes32) public side2digest;
 
     event Joined(address indexed joiner);
     event TopicPromoted();
@@ -48,6 +63,10 @@ contract TopicLogic is Initializable {
     event EditAgreed(uint256 indexed editId, address indexed approver);
     event EditApproved(uint256 indexed editId);
     event TimelockDelay(uint256 Timelock);
+    event ClaimCreated(uint256 indexed claimId);
+    event OpeningClaimModified(uint256 indexed claimId);
+    event AgreeArchive(address indexed clusterAddr);
+    event Archived();
 
     modifier onlyMainSys() {
         require(msg.sender == mainAddr, "only mainSystem");
@@ -76,7 +95,7 @@ contract TopicLogic is Initializable {
         // promoted = false;
         version = 0;
         nextEditId = 1;
-        nextClaimId = 0;
+        nextClaimId = 1;
         promoteTimelock = type(uint256).max;
         // readyforPromote = false;
         // archived = false;
@@ -136,6 +155,7 @@ contract TopicLogic is Initializable {
         require(block.timestamp >= promoteTimelock);
 
         status = Status.Promoted;
+        restAgreeToArchiveCount = JoinedCluster.length;
         emit TopicPromoted();
     }
 
@@ -190,57 +210,124 @@ contract TopicLogic is Initializable {
         emit EditApproved(eid);
     }
 
-    // 김지민님
-    function createClaim(bytes32 claimDigest, address claimCreator, address claimApprover, ClaimType claimType) external onlyCluster() {
+    function createClaim(
+        uint256 parentClaimId, 
+        bytes32 claimDigest, 
+        address claimCreator, 
+        address claimApprover, 
+        ClaimType claimType
+    ) external onlyCluster() {
+
+        Side clusterSide = whereSide[msg.sender];
+
+        //claimCreator가 다른 진영에 클레임을 생성한 적 있는지 검토
+        if (whereSide[claimCreator] == Side.NONE) {
+            whereSide[claimCreator] = clusterSide;
+        } else {
+            require(whereSide[claimCreator] == clusterSide, "creater's side is already locked");
+        }
 
         // if type = opening : require promoted
+        if (claimType == ClaimType.OPENING) {
+            require (status == Status.Promoted, "only promoted status");
+            require (parentClaimId == 0, "parent is 0 required");
 
-        // if type = rebut || inherit : require InDiscussion
+        } else if (claimType == ClaimType.REBUT || claimType == ClaimType.INHERIT) {
+            require (status == Status.InDiscussion, "only in discussion");
 
-        /*lockststem: */ 
-        //claimCreator가 다른 진영에 클레임을 생성한 적 있는지 검토
-        // 생성한 적 없어야됨
-        
+            // parent와 관계
+            Claim memory c = claims[parentClaimId];
+            if (claimType == ClaimType.INHERIT) {
+                require(c.side == clusterSide);
+            } else {
+                // claimType == ClaimType.REBUT
+                if (c.side == Side.PRO) {
+                    require(clusterSide == Side.CON, "oposite side is required");
+                } else if (c.side == Side.CON) {
+                    require(clusterSide == Side.PRO, "oposite side is required");
+                } else {
+                  // c.side = side.none  
+                }
+            }
+
+        } else {
+            revert ("invalid claim type");
+        }
+
         // id: 넥스트 클레임 아이디++
         // 클레임 스트럭트 생성
         // 아이디 -> 클레임 매핑에 집어넣기 (매핑 직접 만드시면 됩니다)
         // 이벤트 뱉어냄
+
+        uint256 _claimId = nextClaimId++;
+
+        // ai 아님
+
+        claims[_cliamId] = Claim({
+            claimId:       _claimId,
+            creator:       claimCreator,
+            digest:        claimDigest,
+            side:          whereSide[msg.sender],
+            claimType:     claimType,
+            parentClaimId: parentClaimId,
+            clusterId:     main.addressToClusterId(msg.sender),
+            isIssued:      false
+        });
+
+        emit ClaimCreated(_claimId);
     }
 
     // 김지민님
     function modifyOpeningClaim(uint256 claimId, bytes32 newDigest) external onlyCluster() {
-        // 클레임 꺼내기
-        // require type = opening
-        // digest = newDigest
+
+        require(status == Status.Promoted, "promoted required");
+        Claim storage c = cliams[claimId];
+        require(c.claimType == ClaimType.OPENING, "opening required");
+
+        c.digest = newDigest;
+
+        emit OpeningClaimModified(claimId);
     }
 
     // 김윤태님
     function agreeToArchive() external onlyCluster {
         // require InDiscussion
+        require(status == Status.InDiscussion, "in discussion required");
+        require(addr2archiveAgeed[msg.sender] == false, "already agreed");
 
         // restAgreeToArchiveCount = JoinedCluster.length로 constructor에 선언하기
         // restAgreeToArchiveCount를 1씩 감소시키기
-        // rest어쩌구가 0이면 내부 함수 _archive 실행
-        /* 다른 방법 떠오르시면 그걸로 해도 ㄱㅊ습니다*/
-        // 이벤트 뱉어냄
+
+        restAgreeToArchiveCount -= 1;
+
+        if (restAgreeToArchiveCount == 0) {
+            _archive();
+        }
+
+        emit AgreeArchive(msg.sender);
     }
 
     // 김윤태님
-    function _archvied() internal {
+    function _archvie() internal {
         // staus = archived
+        status = Status.Archived;
+        side2digest[Side.PRO] = bytes32(0);
+        side2digest[side.CON] = bytes32(0);
+
         // archive struct 생성
         // digest = bytes32(0)
         // side 값별로 매핑에 저장 
         // 이벤트 뱉어냄
+
+        emit Archived();
     }
 
     // 김윤태님
     function EditArchive(bytes32 archiveDigest) external onlyCluster {
         // require archived true
+        require(status == Status.Archived);
 
-        // storge로 매핑에서 archive 스트럭트 불러오기
-        // digest 수정
-        // 이벤트 뱉어냄
+        side2digest[whereSide[msg.sender]] = archiveDigest;
     }
 
     // 이재민님
@@ -250,10 +337,16 @@ contract TopicLogic is Initializable {
         uint256 salePriceWei
     ) external {
         // claims에서 claim 꺼내기
+        Claim storage c = claims[claimId];
+        require(c.claimType != claimType.OPENING, "not opening required");
         // require isIssued false
+        require(!c.isIssued, "already issuded");
         // require msg.sender = 크레이터
+        require(c.creator == msg.sender);
         
-        // claimNTT 포인터에서 mint 함수 꺼내서 인자 넣기
+        // claimNFT 포인터에서 mint 함수 꺼내서 인자 넣기
+        claimNFT.mintClaimNFT(c.claimId, tokenURI_, salePriceWei);
+        c.isIssued = true;
     }
 
 

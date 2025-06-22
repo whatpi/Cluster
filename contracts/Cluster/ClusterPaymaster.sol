@@ -22,11 +22,12 @@ contract ClusterPaymaster is BasePaymaster {
     MainSystem public main;
 
     constructor (
-        address entryPointAddr
+        address entryPointAddr,
+        address mainAddr
     ) 
         BasePaymaster(IEntryPoint(entryPointAddr))
     {
-        main = MainSystem(msg.sender);
+        main = MainSystem(mainAddr);
     }
 
     function initialize(address _clusterAddr) external onlyOwner() {
@@ -81,4 +82,5 @@ contract ClusterPaymaster is BasePaymaster {
 
         // (환급 로직 불필요: 배포 때부터 정확하게 예치하므로 최대 한도만 잠그고, 실제만 차감)
     }
+
 }

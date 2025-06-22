@@ -3,9 +3,10 @@ pragma solidity ^0.8.28;
 import "./Cluster/ClusterSystem.sol";
 import "./Topic/TopicFactory.sol";
 import "./ClaimNFT.sol";
-import "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import "@account-abstraction/contracts/core/EntryPoint.sol";
 import "./Cluster/ClusterPass.sol";
 import "./Cluster/ClusterPaymaster.sol";
+import "./Cluster/ClusterFactory.sol";
 
 
 // claimNFT, 토픽 팩토리 adress(0)로 배포
@@ -18,9 +19,10 @@ contract MainSystem {
     uint256 public nextTopicId;
 
     TopicFactory public topicFactory;
-    address      public topicFactoryAddr;
-    IEntryPoint  public entryPoint;
-    address      public entryPointAddr;
+    EntryPoint   public entryPoint;
+    ClusterFactory public clusterFactory;
+
+    // address      public entryPointAddr;
 
     // mapping(uint256 => address[]) public topicId2Clusters;
     mapping(uint256 => address) public clusterIdToAddrs;
@@ -31,18 +33,21 @@ contract MainSystem {
     event TopicCreated(uint256 id, address proxyAddr);
     event ClusterCreated(uint256 id, address clusterAddress, address indexed user);
 
+    // 
+
     constructor(
         address _topicFactoryAddr,
-        address _entryPointAddr
+        address _entryPointAddr,
+        address _clusterFactoryAddr
     ) 
     {
         // claimNFT = new ClaimNFT("","",address(this));
         // topicFactory = new TopicFactory(address(this), claimNFTAddr);
         topicFactory = TopicFactory(_topicFactoryAddr);
+        entryPoint = EntryPoint(payable(_entryPointAddr));
+        clusterFactory = ClusterFactory(_clusterFactoryAddr);
         nextClusterId = 1; // 클러스터 아이디는 1부터 시작합니다
         nextTopicId = 1; // 1부터 하는 이유는 그게 토픽이 아니면 0을 뱉어낼 거기 떄문에..
-        entryPoint = IEntryPoint(_entryPointAddr);
-        entryPointAddr = _entryPointAddr;
     }
 
     // 클러스터 생성
@@ -53,32 +58,14 @@ contract MainSystem {
 
         // deposit require
         require(msg.value >= 0.0027 ether, "Minimum is 0.0027 ETH");
+        require(clusterIdToAddrs[nextClusterId] == address(0), "id used");
 
-        uint256 _deposit = msg.value;
-        
-        ClusterPass _pass = new ClusterPass("");
-        ClusterPaymaster paymaster = new ClusterPaymaster(entryPointAddr);
-
-
-        /* 3. ClusterSystem 새 배포 */
-        ClusterSystem cluster = new ClusterSystem(
-            nextClusterId, // clusterId는 1부터
-            msg.sender,
-            address(this),  // mainSystemAddr
-            _policyDigest,
-            _deposit,
-            address(paymaster),
-            _pass
-        );
-
-        clusterAddr = address(cluster);
-
-        _pass.transferOwnership(clusterAddr);
-
-        cluster.InitializeCreator();
-
-        paymaster.initialize(clusterAddr);
-        entryPoint.depositTo{value: msg.value}(address(paymaster));
+        address clusterAddr = ClusterFactory.createCluster{value: msg.value}
+            (
+                nextClusterId, 
+                msg.sender, 
+                _policyDigest
+            );
 
         clusterIdToAddrs[nextClusterId] = address(cluster);
         addressToClusterId[address(cluster)] = nextClusterId;
